@@ -1,0 +1,705 @@
+﻿<!DOCTYPE html>
+<html lang ="ja">
+<head>
+<meta charset="utf-8">
+<title>RPG戦闘シーン</title>
+<style type="text/css" rel="stylesheet">
+<!--
+#fileselect{
+  position:absolute;
+  top:40px;
+}
+#load{
+  position:absolute;
+  top:70px;
+}
+#save{
+  position:absolute;
+  top:70px;
+  left:70px;
+}
+#msg{
+  position:absolute;
+  top:90px;
+}
+#btnA{
+  background-color:rgba(220,0,30,0.9);
+  padding:5px 8px;
+  position:absolute;
+  top:200px;
+  left:320px;
+}
+#btnB{
+  background-color:rgba(250,235,30,0.9);
+  padding:5px 8px;
+  position:absolute;
+  top:235px;
+  left:285px;
+}
+#btnX{
+  background-color:rgba(0,70,250,0.98);
+  padding:5px 8px;
+  position:absolute;
+  top:165px;
+  left:285px;
+}
+#btnY{
+  background-color:rgba(80,205,0,0.9);
+  padding:5px 8px;
+  position:absolute;
+  top:200px;
+  left:250px;
+}
+#status{
+  border:dotted lightgray 5px;
+  position:absolute;
+  top:155px;
+  padding:55px 110px;
+}
+.parameter{
+  position:absolute;
+  font-size:14px;
+}
+#PName{
+  bottom:70px;
+  left:15px;
+}
+#PExp{
+  bottom:40px;
+  left:5px;
+}
+#PLevel{
+  bottom:70px;
+  left:102px;
+}
+#PLife{
+  bottom:50px;
+  left:101px;
+}
+#PAttack{
+  bottom:30px;
+  left:100px;
+}
+#PDefence{
+  bottom:10px;
+  left:100px;
+}
+#PSpeed{
+  top:70px;
+  left:100px;
+}
+#Comment{
+  display:none;
+  position:absolute;
+  top:290px;
+  left:10px;
+  width:300px;
+  height:100px;
+  border:double rgba(250,215,10,1) 15px;
+  background-color:rgba(245,225,150,1);
+}
+#TY{
+  position:relative;
+  left:10px;
+}
+-->
+</style>
+<script src="jquery-3.3.1.min.js"></script>
+<script>
+$(function(){
+  var message = $("#msg");  //PName PExp PLevel PLife PAttack PDefence PSpeed
+  var player = {
+    name : "プレイヤー!",
+    life : 12,
+    maxLife : 12,
+    attack : 4,
+    defence : 3,
+    speed : 2,
+    level : 1,
+    exp : 0
+    };
+
+  var StrongRand = [[0,0,0,1,2],				//~5
+		    [1,1,1,1,1,1,2,2,3,3,3,4],			//~10
+		    [1,1,1,1,1,2,2,2,2,3,3,3,4,4],		//~15
+		    [1,1,1,1,2,2,2,2,3,3,3,3,4,4,4,5,5,6],	//~20
+		    [1,1,1,2,2,2,3,3,3,3,4,4,4,4,5,5,5,6,6]]	//20~
+
+  var offenceTime = 0;
+  var defenceTime = 0;
+  var strongTime = 0;
+  var runTime = 0;
+  var showdownTime = 0;
+  var winTime = 0;
+  var loseTime = 0;
+
+
+  var Pprotect = 0;
+  var Eprptect = 0;
+  var breath = 0;
+
+  var enemyLife = 0;
+
+  var damage = 0;
+
+  var upstatus = [0,0,0,0];
+
+  var BtnA = $("#btnA");
+  var BtnB = $("#btnB");
+  var BtnX = $("#btnX");
+  var BtnY = $("#btnY");
+  var Who = $("#who");
+  var BtnStart = $("#start");
+  var PName = $("#PName");
+  var PExp = $("#PExp");
+  var PLevel = $("#PLevel");
+  var PLife = $("#PLife");
+  var PAttack = $("#PAttack");
+  var PDefence = $("#PDefence");
+  var PSpeed = $("#PSpeed");
+
+  var loaddata = {};
+  var form = document.forms.myform;
+  var load = document.getElementById("load");
+
+  var inputQ = $("#fileselect");
+  var loadQ = $("#load");
+  var saveQ = $("#save");
+
+  var data = JSON.stringify(player);
+  var a = document.getElementById("savelink");
+
+
+  var enemyInit = [{enemyNum : 0,name : "スライム",level : 1,exp : 3,life : 5,
+		    maxLife : 5,attack : 3,defence : 3,speed : 2,ability1 : "とっしん"},
+		   {enemyNum : 1,name : "リザードマン",level : 7,exp : 13,life : 32,
+		    maxLife : 32,attack : 12,defence : 6,speed : 12,
+		    ability1 : "ぼうぎょ", ability2 : "かぶとわり"},
+		   {enemyNum : 2,name : "ゴリラ",level : 15,exp : 46,life : 71,
+		    maxLife : 62,attack : 27,defence : 22,speed : 25,
+		    ability1 : "とっしん",ability2 : "じわれ"},
+		   {enemyNum : 3,name : "ゴーレム",level : 20,exp : 223,life : 94,
+		    maxLife : 94,attack : 41,defence : 30,speed : 6,
+		    ability1 : "ころがり",ability2 : "レーザー",ability3 : "じばく"},
+		   {enemyNum : 4,name : "ドラゴン",level : 34,exp : 1622,life : 206,
+		    maxLife : 225,attack : 69,defence : 45,speed : 50,
+		    ability1 : "ほのおのいき",ability2 : "すいこみ",
+		    ability3 : "キャノン", ability4 : "さいごのちから"}];
+    //var enemies = [srime,rezard,kong,gorem,dragon];
+    var against = {};
+
+  var needExp = 4;
+  var beforeNeedExp = 0;
+  var CalforLv = needExp;
+
+  function firstMenu(){     //2
+    whichFirstText(player.level);
+    getStatus();
+  //player辺り関数に
+
+  form.loadfile.addEventListener('change',function(e){
+    var result = e.target.files[0];
+    var reader = new FileReader();	//←新概念
+ 
+    reader.readAsText(result);		//←新概念
+
+    reader.addEventListener("load",function(){
+      //form.output.textContent = reader.result;
+      loaddata = JSON.parse(reader.result);
+      console.log(loaddata.name);
+    });
+    console.log( result );
+  });
+
+  load.addEventListener("click",function(){
+    Rewrite(player,loaddata);
+    getStatus();
+    whichFirstText(player.level);
+    //BeforeNeedExp = plusNeedExp((player.level) - 1);
+    CalforLv = 0;
+    for(var i = 0; i < player.level;i++){
+      CalforLv += plusNeedExp(i+1);
+    }
+    console.log("nextNeedExp : " + CalforLv);
+    console.log("nE:" + needExp);
+  });
+    BtnStart.on("click",Appear);
+    console.log(against.life);
+    return true;
+  }
+
+  function whichFirstText(level){
+    if(level <= 5){
+	message.html("てきをたおそう！");
+    }else if(level <= 10){
+	message.html("そのちょうしでレベルをあげていこう");
+    }else if(level <= 15){
+	message.html("なかなかいいうごきをするようになった");
+    }else if(level <= 20){
+	message.html("どんどんちからがましているね");
+    }else if(level <= 25){
+	message.html("きみならドラゴンをたおせるかもしれない");
+    }else if(level <= 30){
+	message.html("けっせんのひはちかいよ");
+    }else if(level <= 35){
+	message.html("さあせかいをすくうんだ");
+    }else if(level <= 50){
+	message.html("さいきょうをめざすんだね");
+    }else if(level <= 70){
+	message.html("ここまでくればもうなにもいうまい");
+    }else if(level <= 99){
+	message.html("くうかんがゆがんでいく...？");
+    }else{message.html("うちゅうのほうそくがみだれているようだ");}
+  }
+
+  function Rewrite(B,A){	//B...Before   A...After
+    console.log(B.name);
+    console.log(A.name);
+    B.name = A.name;
+    B.life = A.life;
+    B.maxLife = A.maxLife;
+    B.attack = A.attack;
+    B.defence = A.defence;
+    B.speed = A.speed;
+    B.level = A.level;
+    B.exp = A.exp;
+  }
+
+  function getStatus(){
+    PName.html(player.name);
+    PExp.html("Exp:" + player.exp);
+    PLevel.html("レベル : " + player.level);
+    PLife.html("HP : " + player.life + " / " + player.maxLife);
+    PAttack.html("こうげき : " + player.attack);
+    PDefence.html("ぼうぎょ : " + player.defence);
+    PSpeed.html("すばやさ : " + player.speed);
+  }
+
+
+
+  $("#save").off("click").on("click",function(){
+    data = JSON.stringify(player);
+    a.download = 'playerInit.json';
+    a.href = window.URL.createObjectURL(new Blob([data], { type: 'text/plain' }));
+    a.dataset.downloadurl = ['text/plain', a.download, a.href].join(':');
+  });
+
+  function Appear(){    //3
+    var attackrand = [[0,0,0,0,1],
+		     [0,0,0,0,0,1,1,2],
+		     [0,0,0,0,0,0,1,1,1,2],
+		     [0,0,0,0,0,0,0,1,1,2,2],	//3自爆?
+		     [0,0,0,0,1,1,2]];		//3キャノン,4さいご?
+    var Enemynum = parseInt($("#who > option:selected").val());
+    against = enemyInit[Enemynum];
+    enemyLife = against.life;
+    battleText(20);
+    optTogglePress(0);
+    BtnA.attr("disabled",false).on("click",Fast);
+    showdownTime++;
+    console.log("showdownTime : " + showdownTime);
+    return true;
+    }
+
+  function togglePress(press){
+    if(press == 0){
+    BtnB.attr("disabled",true);
+    BtnX.attr("disabled",true);
+    BtnY.attr("disabled",true);
+    }else if(press == 1){
+    BtnB.attr("disabled",false);
+    BtnX.attr("disabled",false);
+    BtnY.attr("disabled",false);
+    }
+  }
+
+  function optTogglePress(press){
+    if(press == 0){
+    Who.attr("disabled",true);
+    BtnStart.attr("disabled",true).off("click");
+    inputQ.attr("disabled",true);
+    loadQ.attr("disabled",true);
+    saveQ.attr("disabled",true);
+    }else if(press == 1){
+    Who.attr("disabled",false);
+    BtnStart.attr("disabled",false);
+    inputQ.attr("disabled",false);
+    loadQ.attr("disabled",false);
+    saveQ.attr("disabled",false);
+    }
+  }
+
+  function battleText(number){
+    var Displaydamage;   //このへんグローバルでオブジェクト化するかも
+    var DisplayEx;
+    var DisplayLevel;		//名前つける関数いるか?
+    var Num = number;		//↓switchで書き換え?
+    //var With = enemyInit().name;
+    var textInit = [{val : 0, text :"どうする? <br>Y.こうげき A.ぼうぎょ X.とくしゅ B.にげる"},
+ 		    {val : 1, text : "プレイヤーの こうげき！<br>" + against.name + "に " + damage + "のダメージをあたえた！"},
+ 		    {val : 2, text : "プレイヤーの こうげき！<br>" + against.name + "に ダメージがとおらない！"},
+		    {val : 3, text : "プレイヤーは ぼうぎょしている。"},
+		    {val : 4, text : "プレイヤーは にげだした！"},
+		    {val : 5, text : "プレイヤーはいきおいよく てきをこうげきした！"},
+		    {val : 6, text : "プレイヤーははしりだし ドロップキックをはなった！"},
+		    {val : 7, text : "プレイヤーは ロケットランチャーをはなった！"},
+		    {val : 8, text : "プレイヤーは ふくしきこきゅうをした。<br>こうげきりょくを そこあげした!"},
+		    {val : 9, text : "プレイヤーは しっぱいをおそれている！"},
+		    {val : 10, text : "HP"},
+		    {val : 11, text : "プレイヤーは 10のけいけんちをかくとく！"},
+		    {val : 12, text : "プレイヤーは ちからつきた・・・。"},
+		    {val : 13, text : "プレイヤーのレベルが "+player.level+"になった！<br>HP+"+upstatus[0]+" こうげき+"+upstatus[1]+" ぼうぎょ+"+upstatus[2]+" すばやさ+"+upstatus[3]},
+		    {val : 14, text : "きょうれつな いちげき！<br>" + against.name + "に " + damage + "のダメージ！"},
+		    {val : 15, text : "うまく あてられなかった！"},
+		    {val : 16, text : "こうげきりょくが 1あがった！"},
+		    {val : 17, text : "ぼうぎょりょくが 1あがった！"},
+		    {val : 18, text : "たいりょくが 1あがった！"},
+		    {val : 19, text : "すばやさが 1あがった！"},
+		    {val : 20, text : against.name + "が あらわれた！"},
+		    {val : 21, text : against.name + "の こうげき！<br>プレイヤーに " + damage + "のダメージ！"},
+ 		    {val : 22, text : against.name + "の こうげき！<br>プレイヤーに ダメージがとおらない！"},
+		    {val : 23, text : against.name + "を たおした！<br>プレイヤーは" + against.exp + "のけいけんちをかくとく！"}];
+    message.html(textInit[Num].text);
+    return true;
+  }
+
+  function Command(){
+    BtnA.on("click",Defence);
+    BtnB.on("click",Run);
+    BtnX.on("click",ifBreath);
+    BtnY.on("click",Attack);
+  }
+
+  function ResetButton(){
+    BtnA.off("click");
+    BtnB.off("click");
+    BtnX.off("click");
+    BtnY.off("click");
+  }
+
+  function Attack(){
+    damage = CalDamageTo();
+    against.life -= damage;
+    console.log(against.life);
+    if(damage <= 0){
+	battleText(2);
+    }else{
+	battleText(1);
+    }
+    ResetButton();
+    togglePress(0);
+    
+    console.log("enemyHp : " + against.life);
+    console.log(damage);
+    offenceTime++;
+    console.log("offenceTime : " + offenceTime);
+    BtnA.on("click",ifWin);
+  }
+
+  function CalDamageTo(){
+    var DamageTo = (player.attack - against.defence) + Math.ceil((Math.floor(Math.random() * (player.level + 1)) + 1) / 2);
+    if(DamageTo <= 0){
+	DamageTo = 0;
+        return DamageTo;
+    }
+    //if(Eprotect == 1){Eprotect--; return Math.ceil(DamageTo / 2);}else{}
+    return DamageTo;
+  }	//↑敵の防御
+
+  function CalDamageFor(){
+    var DamageFor = (against.attack - player.defence) + Math.ceil((Math.floor(Math.random() * (against.level + 1)) + 1) / 2);
+    if(Pprotect == 1){Pprotect--; 
+    return Math.ceil(DamageFor / 2);
+    }else{return DamageFor;
+   }
+  }
+
+  function Defence(){
+    Pprotect++;		//enemyAttackで減らす
+    console.log("guard :" + Pprotect);
+    battleText(3);
+    ResetButton();
+    togglePress(0);
+    defenceTime++;
+    console.log("defenceTime : " + defenceTime);
+    BtnA.on("click",enemyAttack);
+  }
+
+  function ifBreath(){
+    var breathRand = [0,0,0,0,1];
+    var TFbreath = breathRand[Math.floor(Math.random() * 5)];
+
+    if(player.level <= against.level){
+	if( TFbreath == 0){
+	  ifStrong();
+	}else if(TFbreath == 1){
+	  breath++;
+	  console.log("breath : " + breath);
+	  ResetButton();
+	  togglePress(0);
+	  battleText(8);
+	  BtnA.off("click").on("click",enemyAttack);
+	}else{
+	  console.log("breathEroor");
+	  ifStrong();
+	}
+    }else{
+	ifStrong();
+    }
+  }
+
+  function ifStrong(){
+    if(player.level <= 5){Strong(0)}
+    else if(player.level <= 10){Strong(1)}
+    else if(player.level <= 15){Strong(2)}
+    else if(player.level <= 20){Strong(3)}
+    else if(player.level > 20){Strong(4)}
+  }
+
+  function Strong(numberT1){
+    console.log("Table : " + numberT1);
+    var PTable = StrongRand[numberT1][Math.floor(Math.random() * (StrongRand[numberT1].length))];
+    var Case = Math.ceil(PTable / 2);
+    var Datanumber = {value : PTable, number : Case};
+
+    strongTime++;
+    console.log("strongTime : " + strongTime);
+    ResetButton();
+    togglePress(0);
+    console.log("PTable : " + PTable);
+    if(Case == 0){
+	battleText(9);
+	BtnA.off("click").on("click",enemyAttack);	//offなしでもいい？
+    }else if(Case == 1){
+	battleText(5);
+	BtnA.off("click").on("click",Datanumber,StrongResult);
+    }else if(Case == 2){
+	battleText(6);
+	BtnA.off("click").on("click",{value : PTable, number : Case},StrongResult);
+    }else if(Case == 3){
+	battleText(7);
+	BtnA.off("click").on("click",{value : PTable, number : Case},StrongResult);
+    }else{
+	console.log("StrongError");
+    }
+  }
+
+  function StrongResult(numberT2){
+    var T2 = numberT2.data.value;
+    var which = numberT2.data.number;
+    var Calstrong = (Math.floor(Math.random() * 2) + (which + 3)) ** 2 ;
+
+    if((T2 % 2) == 0){
+	if(T2 % 2 == 0){
+	  damage = (CalDamageTo() + Calstrong);
+	  console.log("Calstrong : " + Calstrong + ", damage : " + damage);
+	  battleText(14);
+	  against.life -= damage;
+	}
+    }else if((T2 % 2) == 1){
+	battleText(15);
+    }else{
+	console.log("StrongEroor");
+    }
+    BtnA.off("click").on("click",ifWin);
+  }
+
+  function Run(){
+	battleText(4);
+	ResetButton();
+	togglePress(0);
+	runTime++;
+	console.log("runTime : " + runTime);
+	BtnA.on("click",Return);
+  }
+
+  function enemyAttack(){
+    damage = CalDamageFor();
+    if(damage <= 0){
+	battleText(22);
+    }else{
+	battleText(21);
+    player.life -= damage;
+    }
+    if(player.life <= 0){
+	player.life = 0;
+	getStatus();
+	BtnA.off("click").on("click",Lose);
+    }else{
+	getStatus();
+	BtnA.off("click").on("click",Route)
+    }
+  }
+
+  function ifWin(){
+    if(against.life <= 0){
+	Win();
+    }else{
+	enemyAttack();
+    }
+  }
+
+  var saveWorld = 0;
+
+  function Win(){
+  var Calforlevelup = player.level;
+
+    battleText(23);
+    winTime++;
+    if(against.name == "ドラゴン"){
+    saveWorld++;
+    }
+    console.log("winTime : " + winTime);
+    player.exp += against.exp;
+    PExp.html("Exp:" + player.exp);
+    BtnA.off("click").on("click",ifLevelup);
+  }
+
+  function Lose(){
+	battleText(12);
+	loseTime++;
+	console.log("loseTime : " + loseTime);
+	BtnA.off("click").on("click",Return);
+  }
+
+
+  function ifLevelup(){
+      if(player.exp >= CalforLv){
+	Levelup();
+      }else{
+	Return();
+    }
+  }
+
+  function Return(){
+    BtnA.attr("disabled",true).off("click");
+    togglePress(0);
+    optTogglePress(1);
+    if(saveWorld > 0){
+      saveWorld--;
+      Endroll();
+    }
+    player.life = player.maxLife;
+    against.life = against.maxLife;
+    firstMenu();
+  }
+
+  function Levelup(){	//level++;は呼び出し時に?
+	player.level++;
+    for (var key in player){
+	if(key == "attack"){
+	upstatus[1] = (Math.floor(Math.random() * 3) + 1)
+	player[key] += upstatus[1];
+	console.log(upstatus[1]);
+	}else if(key == "defence"){
+	upstatus[2] = (Math.floor(Math.random() * 3) + 1)
+	player[key] += upstatus[2];
+	console.log(upstatus[2]);
+	//console.log(key + " : " + player[key]);
+	}else if(key == "speed"){
+	upstatus[3] = (Math.floor(Math.random() * 2) + 1);
+	player[key] += upstatus[3];
+	console.log(upstatus[3]);
+	//console.log(key + " : " + player[key]);
+	}else if(key == "maxLife"){
+	upstatus[0] = (Math.floor(Math.random() * 7) + 1);
+	player[key] += upstatus[0];
+	//console.log(key + " : " + player[key]);
+	console.log(upstatus[0]);
+	}
+      }
+	console.log(upstatus);
+	battleText(13);
+	BtnA.off("click").on("click",function(){
+	  getStatus();
+	  CalforLv += plusNeedExp(player.level);
+	  console.log("nextNeedExp : " + CalforLv);
+	  console.log("nE:" + needExp);
+	  ifLevelup();
+	});
+    }
+
+  function plusNeedExp(Lv){
+    if(Lv <= 5){
+      needExp = 4 * (Lv - 1) + 4;	//ここ
+    }else if(Lv <= 10){
+      needExp = 16 * (Lv - 6) + 24;
+    }else if(Lv <= 20){
+      needExp = 19 * (Lv - 11) + 102 + 2 * ((Lv - 11) ** 2);
+    }else if(Lv <= 40){
+      needExp = (Lv ** 2) + 11 * (Lv - 16);
+    }else{
+      needExp = Math.floor((1 + ((Lv - 40) / 10)) * (Lv ** 2) + 11 * (Lv - 16));
+    }
+    return needExp;
+  }
+
+  function Fast(){
+    var enemySpeed = against.speed;
+    var Fastrand = Math.floor(Math.random() * 2); 
+    if(player.speed > enemySpeed){
+	Route();
+    }else if(enemySpeed > player.speed){
+	enemyAttack();
+    }else if(player.speed == enemySpeed){
+	if(Fastrand == 0){
+	  Route();
+	}else if(Fastrand == 1){
+	  enemyAttack();
+	}
+    }
+  }
+
+  function Route(){
+	battleText(0);
+	togglePress(1);
+	BtnA.off("click");
+	Command();
+    }
+
+  function Endroll(){
+    var Commendation = $("#Comment");
+    var myComment = $("#TY");
+    myComment.html("あそんでくれて ありがとう！<br>つぎはここに え をのせたいなぁ...。");
+    Commendation.css("display","block");
+    Return();
+  }
+    firstMenu();    //1
+});
+</script>
+</head>
+<body>
+<select id="who">
+<option value="0" selected>スライム</option>
+<option value="1">リザードマン</option>
+<option value="2">ゴリラ</option>
+<option value="3">ゴーレム</option>
+<option value="4">ドラゴン</option>
+</select>
+<button id="start">戦闘開始</button>
+<form name="myform">
+  <input id="fileselect" name="loadfile" type="file" />
+  <!--<textarea name="output" cols="50" rows="10"></textarea>-->
+</form>
+<button id="load">ロード</button>
+<a id="savelink"><button id="save">セーブ</button></a>
+<p id="msg"></p>
+<br>
+<button id = "btnA" disabled = "disabled">A</button>
+<button id = "btnB" disabled = "disabled">B</button>
+<button id = "btnX" disabled = "disabled">X</button>
+<button id = "btnY" disabled = "disabled">Y</button>
+<div id="status">
+<p class="parameter" id="PName">プレイヤー</p>
+<p class="parameter" id="PExp"></p>
+<p class="parameter" id="PLevel"></p>
+<p class="parameter" id="PLife">HP : 30/30</p>
+<p class="parameter" id="PAttack">こうげき : 13</p>
+<p class="parameter" id="PDefence">ぼうぎょ : 7</p>
+<p class="parameter" id="PSpeed">すばやさ : 6</p>
+</div>
+<div id="Comment">
+<p id="TY"></p>
+</div>
+</body>
+</html>
